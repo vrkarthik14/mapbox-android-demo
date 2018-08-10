@@ -101,10 +101,10 @@
     <string name="activity_labs_inset_map_title">Inset map</string>
     <string name="activity_labs_gif_on_map_title">Animated image source (GIF)</string>
     <string name="activity_labs_snaking_directions_route_title">Snaking directions</string>
-    <string name="activity_dashed_line_directions_picker_title">Directions to selected location</string>
+    <string name="activity_labs_dashed_line_directions_picker_title">Directions to selected location</string>
     <string name="activity_lab_calendar_integration_title">Calendar integration</string>
     <string name="activity_lab_magic_window_title">Magic Window</string>
     <string name="activity_lab_fog_background_title">Background fog</string>
     <string name="activity_china_simple_china_mapview_title">China map view</string>
-
+    <string name="activity_labs_ambient_noise_extrusion_height_title">Building height noise</string>
 </resources>
