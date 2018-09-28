@@ -660,6 +660,13 @@
                 android:value="com.mapbox.mapboxandroiddemo.MainActivity" />
         </activity>
         <activity
+            android:name=".examples.labs.SatelliteHeatmapEventActivity"
+            android:label="@string/activity_satellite_heatmap_event_title">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value="com.mapbox.mapboxandroiddemo.MainActivity" />
+        </activity>
+        <activity
             android:name=".account.LandingActivity"
             android:screenOrientation="portrait">
             <intent-filter>

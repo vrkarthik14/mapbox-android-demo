@@ -78,6 +78,7 @@ import com.mapbox.mapboxandroiddemo.examples.labs.MarkerFollowingRouteActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.PictureInPictureActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.PulsingLayerOpacityColorActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.RecyclerViewOnMapActivity;
+import com.mapbox.mapboxandroiddemo.examples.labs.SatelliteHeatmapEventActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.SnakingDirectionsRouteActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.SpaceStationLocationActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.SymbolLayerMapillaryActivity;
@@ -293,6 +294,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
           models.add(model);
         }
       }
+
     }
 
     adapter.updateDataSet(models, currentCategory);
