@@ -84,7 +84,6 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private static final String HIGHLIGHTED_EVENT_LAYER_ID = "HIGHLIGHTED_EVENT_LAYER_ID";
   private static final String PROPERTY_SELECTED = "selected";
   private static final String PROPERTY_EVENT_TITLE = "title";
-  private static final String EVENT_GEOJSON_URL = "https://www.mapbox.com/mapbox-gl-js/assets/earthquakes.geojson";
   private static final String HEATMAP_LAYER_ID = "earthquakes-heat";
   private static final String HEATMAP_LAYER_SOURCE = "earthquakes";
   private static final String SATELLITE_RASTER_SOURCE_ID = "satellite-raster-source-id";
@@ -95,7 +94,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private static final String SOURCE_URL = "mapbox://mapbox.terrain-rgb";
   private static final String HILLSHADE_HIGHLIGHT_COLOR = "#008924";
   private MapboxMap mapboxMap;
-  private String HIGHLIHGTED_EVENT_GEOJSON_SOURCE_ID = "HIGHLIHGTED_EVENT_GEOJSON_SOURCE_ID";
+  private String HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID = "HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID";
   private GeoJsonSource source;
   private FeatureCollection highlightedEventFeatureCollection;
   private HashMap<String, View> viewMap;
@@ -121,7 +120,18 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
 
     this.mapboxMap = mapboxMap;
 
-    mapboxMap.getLayer("water").setProperties(fillColor(Color.parseColor("#4793F0")));
+    if (mapboxMap.getLayer("water") != null) {
+      mapboxMap.getLayer("water").setProperties(fillColor(Color.parseColor("#4793F0")));
+    }
+    if (mapboxMap.getLayer("park") != null) {
+      mapboxMap.getLayer("park").setProperties(fillColor(Color.parseColor("#8CD174")));
+    }
+    if (mapboxMap.getLayer("landcover_grass") != null) {
+      mapboxMap.getLayer("landcover_grass").setProperties(fillColor(Color.parseColor("#519B37")));
+    }
+    if (mapboxMap.getLayer("landcover_crop") != null) {
+      mapboxMap.getLayer("landcover_crop").setProperties(fillColor(Color.parseColor("#7DFB51")));
+    }
 
     /*addHillshadeSource();
     addHillshadeLayer();*/
@@ -179,7 +189,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
    * Adds the GeoJSON source to the map
    */
   private void initHighlightedEventFeatureCollection() {
-    source = new GeoJsonSource(HIGHLIHGTED_EVENT_GEOJSON_SOURCE_ID, highlightedEventFeatureCollection);
+    source = new GeoJsonSource(HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID, highlightedEventFeatureCollection);
     mapboxMap.addSource(source);
   }
 
@@ -199,7 +209,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
    * </p>
    */
   private void initHighlightedEventLayer() {
-    mapboxMap.addLayer(new SymbolLayer(HIGHLIGHTED_EVENT_LAYER_ID, HIGHLIHGTED_EVENT_GEOJSON_SOURCE_ID)
+    mapboxMap.addLayer(new SymbolLayer(HIGHLIGHTED_EVENT_LAYER_ID, HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID)
       .withProperties(
         /* show image with id title based on the value of the name feature property */
         iconImage("{name}"),
@@ -450,7 +460,10 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
 
   private void addHeatmapSource() {
     try {
-      mapboxMap.addSource(new GeoJsonSource(HEATMAP_LAYER_SOURCE, new URL(EVENT_GEOJSON_URL)));
+      mapboxMap.addSource(new GeoJsonSource(HEATMAP_LAYER_SOURCE, new URL(
+        "https://api.mapbox.com/datasets/v1/langsmith/cjjn59joo019heyqqtmy6rkmb/features?&access_token="
+          + getString(R.string.access_token)
+      )));
     } catch (MalformedURLException malformedUrlException) {
       Timber.e(malformedUrlException, "That's not an url... ");
     }
