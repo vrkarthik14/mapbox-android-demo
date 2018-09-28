@@ -274,4 +274,7 @@
 
     <!-- Temperature change -->
     <string name="temp_change_feedback"> Showing min and max temperatures up to 2006 in %1$s</string>
+
+    <!-- Heatmap event -->
+    <string name="heat_style_switch_menu_title">Heatmap switch</string>
 </resources>

@@ -14,6 +14,8 @@ import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -30,6 +32,7 @@ import com.mapbox.mapboxsdk.geometry.LatLng;
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
+import com.mapbox.mapboxsdk.style.expressions.Expression;
 import com.mapbox.mapboxsdk.style.layers.HeatmapLayer;
 import com.mapbox.mapboxsdk.style.layers.HillshadeLayer;
 import com.mapbox.mapboxsdk.style.layers.Layer;
@@ -49,11 +52,11 @@ import java.util.List;
 
 import timber.log.Timber;
 
-import static com.mapbox.mapboxsdk.style.expressions.Expression.get;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.heatmapDensity;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.interpolate;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.linear;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.literal;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.rgb;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.rgba;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.stop;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.zoom;
@@ -61,8 +64,8 @@ import static com.mapbox.mapboxsdk.style.layers.Property.ICON_ANCHOR_BOTTOM;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.fillColor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapColor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapIntensity;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapOpacity;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapRadius;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapWeight;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.hillshadeHighlightColor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.hillshadeShadowColor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap;
@@ -76,7 +79,7 @@ import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.rasterOpacity;
  * In this example, parks, hotels, and attractions are displayed.
  */
 public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
-  OnMapReadyCallback, MapboxMap.OnMapClickListener {
+  OnMapReadyCallback, MapboxMap.OnMapClickListener, MapboxMap.OnCameraMoveListener {
 
 
   private MapView mapView;
@@ -98,10 +101,17 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private GeoJsonSource source;
   private FeatureCollection highlightedEventFeatureCollection;
   private HashMap<String, View> viewMap;
+  private Expression[] listOfHeatmapColors;
+  private Expression[] listOfHeatmapRadiusStops;
+  private Float[] listOfHeatmapIntensityStops;
+  private int heatmapSwitchIndex;
+
+  private Layer poiLayer;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    heatmapSwitchIndex = 0;
 
     // Mapbox access token is configured here. This needs to be called either in your application
     // object or in the same activity which contains the mapview.
@@ -120,6 +130,12 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
 
     this.mapboxMap = mapboxMap;
 
+    for (Layer singleLayer : mapboxMap.getLayers()) {
+      Log.d(TAG, "onMapReady: singleLayer id = " + singleLayer.getId());
+    }
+
+    mapboxMap.addOnCameraMoveListener(this);
+
     if (mapboxMap.getLayer("water") != null) {
       mapboxMap.getLayer("water").setProperties(fillColor(Color.parseColor("#4793F0")));
     }
@@ -136,9 +152,6 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     /*addHillshadeSource();
     addHillshadeLayer();*/
 
-    for (Layer singleLayer : mapboxMap.getLayers()) {
-      Log.d(TAG, "onMapReady: singleLayer id = " + singleLayer.getId());
-    }
 
     Log.d(TAG, "onMapReady: here 1");
     new LoadHighlightedEventGeoJsonDataTask(this).execute();
@@ -146,11 +159,11 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     Log.d(TAG, "onMapReady: here 2");
 
     // Add heatmap data
+    initHeatmapColors();
+    initHeatmapRadiusStops();
+    initHeatmapIntensityStops();
     addHeatmapSource();
-    Log.d(TAG, "onMapReady: 3");
     addHeatmapLayer();
-    Log.d(TAG, "onMapReady: here 4");
-
 
     // Add satellite raster layer for viewing satellite photos once the camera is close enough to the map
     addSatelliteRasterSource();
@@ -162,6 +175,10 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
       .build();
     mapboxMap.animateCamera(
       CameraUpdateFactory.newCameraPosition(newCameraPosition), 2600);*/
+
+
+    // Add separate layer of POI text so that POIs appear when zoomed in close enough to the map
+    setPoiLayer();
 
     mapboxMap.addOnMapClickListener(this);
   }
@@ -183,6 +200,18 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     highlightedEventFeatureCollection = collection;
     initHighlightedEventFeatureCollection();
     initHighlightedEventLayer();
+  }
+
+  @Override
+  public void onCameraMove() {
+    Log.d(TAG, "onCameraMove: camera zoom = " + mapboxMap.getCameraPosition().zoom);
+
+    if (mapboxMap.getCameraPosition().zoom >= 14) {
+      mapboxMap.addLayer(poiLayer);
+    }
+    if (mapboxMap.getCameraPosition().zoom < 14) {
+      mapboxMap.removeLayer(poiLayer);
+    }
   }
 
   /**
@@ -264,7 +293,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   /**
    * Set a feature selected state.
    *
-   * @param index the index of selected feature
+   * @param index the heatmapSwitchIndex of selected feature
    */
   private void setSelected(int index) {
     Feature feature = highlightedEventFeatureCollection.features().get(index);
@@ -285,7 +314,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   /**
    * Checks whether a Feature's boolean "selected" property is true or false
    *
-   * @param index the specific Feature's index position in the FeatureCollection's list of Features.
+   * @param index the specific Feature's heatmapSwitchIndex position in the FeatureCollection's list of Features.
    * @return true if "selected" is true. False if the boolean property is false.
    */
   private boolean featureSelectStatus(int index) {
@@ -461,7 +490,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private void addHeatmapSource() {
     try {
       mapboxMap.addSource(new GeoJsonSource(HEATMAP_LAYER_SOURCE, new URL(
-        "https://api.mapbox.com/datasets/v1/langsmith/cjjn59joo019heyqqtmy6rkmb/features?&access_token="
+        "https://api.mapbox.com/datasets/v1/appsatmapboxcom/cjmmk40py05kv2vnki7g6ikrd/features?&access_token="
           + getString(R.string.access_token)
       )));
     } catch (MalformedURLException malformedUrlException) {
@@ -473,54 +502,17 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     HeatmapLayer layer = new HeatmapLayer(HEATMAP_LAYER_ID, HEATMAP_LAYER_SOURCE);
     layer.setSourceLayer(HEATMAP_LAYER_SOURCE);
     layer.setProperties(
-
-      // Color ramp for heatmap.  Domain is 0 (low) to 1 (high).
-      // Begin color ramp at 0-stop with a 0-transparancy color
-      // to create a blur-like effect.
-      heatmapColor(
-        interpolate(
-          linear(), heatmapDensity(),
-          literal(0.01), rgba(0, 0, 0, 0.01),
-          literal(0.1), rgba(0, 2, 114, .1),
-          literal(0.2), rgba(0, 6, 219, .15),
-          literal(0.3), rgba(0, 74, 255, .2),
-          literal(0.4), rgba(0, 202, 255, .25),
-          literal(0.5), rgba(73, 255, 154, .3),
-          literal(0.6), rgba(171, 255, 59, .35),
-          literal(0.7), rgba(255, 197, 3, .4),
-          literal(0.8), rgba(255, 82, 1, 0.7),
-          literal(0.9), rgba(196, 0, 1, 0.8),
-          literal(0.95), rgba(121, 0, 0, 0.8)
-        )
-      ),
-
-      // Increase the heatmap weight based on frequency and property magnitude
-      heatmapWeight(
-        interpolate(
-          linear(), get("mag"),
-          stop(0, 0),
-          stop(6, 1)
-        )
-      ),
+      heatmapColor(listOfHeatmapColors[heatmapSwitchIndex]),
 
       // Increase the heatmap color weight weight by zoom level
       // heatmap-intensity is a multiplier on top of heatmap-weight
-      heatmapIntensity(
-        interpolate(
-          linear(), zoom(),
-          stop(0, 1),
-          stop(9, 3)
-        )
-      ),
+      heatmapIntensity(listOfHeatmapIntensityStops[heatmapSwitchIndex]),
 
       // Adjust the heatmap radius by zoom level
-      heatmapRadius(
-        interpolate(
-          linear(), zoom(),
-          stop(0, 2),
-          stop(9, 20)
-        )
-      )
+      heatmapRadius(listOfHeatmapRadiusStops[heatmapSwitchIndex]
+      ),
+
+      heatmapOpacity(1f)
     );
 
     if (mapboxMap.getLayer("waterway-label") == null) {
@@ -556,11 +548,18 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     mapboxMap.addLayer(satelliteRasterLayer);
   }
 
+  private void setPoiLayer() {
+
+    // Create a data source for the satellite raster images
+    poiLayer = mapboxMap.getLayer("poi-scalerank4-l1");
+  }
+
   private void addHillshadeSource() {
     // Add hillshade data source to map
     RasterDemSource rasterDemSource = new RasterDemSource(SOURCE_ID, SOURCE_URL);
     mapboxMap.addSource(rasterDemSource);
   }
+
   private void addHillshadeLayer() {
 
 
@@ -572,6 +571,282 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
 
     // Add the hillshade layer to the map
     mapboxMap.addLayerBelow(hillshadeLayer, LAYER_BELOW_ID);
+  }
+
+  private void initHeatmapColors() {
+    listOfHeatmapColors = new Expression[] {
+
+
+      // 8
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(0, 0, 0, 0.01),
+        literal(0.1), rgba(0, 2, 114, .1),
+        literal(0.2), rgba(0, 6, 219, .15),
+        literal(0.3), rgba(0, 74, 255, .2),
+        literal(0.4), rgba(0, 202, 255, .25),
+        literal(0.5), rgba(73, 255, 154, .3),
+        literal(0.6), rgba(171, 255, 59, .35),
+        literal(0.7), rgba(255, 197, 3, .4),
+        literal(0.8), rgba(255, 82, 1, 0.7),
+        literal(0.9), rgba(196, 0, 1, 0.8),
+        literal(0.95), rgba(121, 0, 0, 0.8)
+      ),
+      // 9
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(0, 0, 0, 0.01),
+        literal(0.1), rgba(0, 2, 114, .1),
+        literal(0.2), rgba(0, 6, 219, .15),
+        literal(0.3), rgba(0, 74, 255, .2),
+        literal(0.4), rgba(0, 202, 255, .25),
+        literal(0.5), rgba(73, 255, 154, .3),
+        literal(0.6), rgba(171, 255, 59, .35),
+        literal(0.7), rgba(255, 197, 3, .4),
+        literal(0.8), rgba(255, 82, 1, 0.7),
+        literal(0.9), rgba(196, 0, 1, 0.8),
+        literal(0.95), rgba(121, 0, 0, 0.8)
+      ),
+      // 10
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(0, 0, 0, 0.01),
+        literal(0.1), rgba(0, 2, 114, .1),
+        literal(0.2), rgba(0, 6, 219, .15),
+        literal(0.3), rgba(0, 74, 255, .2),
+        literal(0.4), rgba(0, 202, 255, .25),
+        literal(0.5), rgba(73, 255, 154, .3),
+        literal(0.6), rgba(171, 255, 59, .35),
+        literal(0.7), rgba(255, 197, 3, .4),
+        literal(0.8), rgba(255, 82, 1, 0.7),
+        literal(0.9), rgba(196, 0, 1, 0.8),
+        literal(0.95), rgba(121, 0, 0, 0.8)
+      ),
+      // 11
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(0, 0, 0, 0.25),
+        literal(0.25), rgba(229, 12, 1, .7),
+        literal(0.30), rgba(244, 114, 1, .7),
+        literal(0.40), rgba(255, 205, 12, .7),
+        literal(0.50), rgba(255, 229, 121, .8),
+        literal(1), rgba(255, 253, 244, .8)
+      ),
+      // 0
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(0, 0, 0, 0.01),
+        literal(0.25), rgba(224, 176, 63, 0.5),
+        literal(0.5), rgb(247, 252, 84),
+        literal(0.75), rgb(186, 59, 30),
+        literal(0.9), rgb(255, 0, 0)
+      ),
+      // 1
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(255, 255, 255, 0.4),
+        literal(0.25), rgba(4, 179, 183, 1.0),
+        literal(0.5), rgba(204, 211, 61, 1.0),
+        literal(0.75), rgba(252, 167, 55, 1.0),
+        literal(1), rgba(255, 78, 70, 1.0)
+      ),
+      // 2
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(12, 182, 253, 0.0),
+        literal(0.25), rgba(87, 17, 229, 0.5),
+        literal(0.5), rgba(255, 0, 0, 1.0),
+        literal(0.75), rgba(229, 134, 15, 0.5),
+        literal(1), rgba(230, 255, 55, 0.6)
+      ),
+      // 3
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(135, 255, 135, 0.2),
+        literal(0.5), rgba(255, 99, 0, 0.5),
+        literal(1), rgba(47, 21, 197, 0.2)
+      ),
+      // 4
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(4, 0, 0, 0.2),
+        literal(0.25), rgba(229, 12, 1, 1.0),
+        literal(0.30), rgba(244, 114, 1, 1.0),
+        literal(0.40), rgba(255, 205, 12, 1.0),
+        literal(0.50), rgba(255, 229, 121, 1.0),
+        literal(1), rgba(255, 253, 244, 1.0)
+      ),
+      // 5
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(0, 0, 0, 0.01),
+        literal(0.05), rgba(0, 0, 0, 0.05),
+        literal(0.4), rgba(254, 142, 2, 0.7),
+        literal(0.5), rgba(255, 165, 5, 0.8),
+        literal(0.8), rgba(255, 187, 4, 0.9),
+        literal(0.95), rgba(255, 228, 173, 0.8),
+        literal(1), rgba(255, 253, 244, .8)
+      ),
+      //6
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(0, 0, 0, 0.01),
+        literal(0.3), rgba(82, 72, 151, 0.4),
+        literal(0.4), rgba(138, 202, 160, 1.0),
+        literal(0.5), rgba(246, 139, 76, 0.9),
+        literal(0.9), rgba(252, 246, 182, 0.8),
+        literal(1), rgba(255, 255, 255, 0.8)
+      ),
+
+      //7
+      interpolate(
+        linear(), heatmapDensity(),
+        literal(0.01), rgba(0, 0, 0, 0.01),
+        literal(0.1), rgba(0, 2, 114, .1),
+        literal(0.2), rgba(0, 6, 219, .15),
+        literal(0.3), rgba(0, 74, 255, .2),
+        literal(0.4), rgba(0, 202, 255, .25),
+        literal(0.5), rgba(73, 255, 154, .3),
+        literal(0.6), rgba(171, 255, 59, .35),
+        literal(0.7), rgba(255, 197, 3, .4),
+        literal(0.8), rgba(255, 82, 1, 0.7),
+        literal(0.9), rgba(196, 0, 1, 0.8),
+        literal(0.95), rgba(121, 0, 0, 0.8)
+      )
+    };
+  }
+
+  private void initHeatmapRadiusStops() {
+    listOfHeatmapRadiusStops = new Expression[] {
+
+      // 8
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(200)
+      ),
+      // 9
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(200)
+      ),
+      // 10
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(200)
+      ),
+      // 11
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(200)
+      ),
+      // 0
+      interpolate(
+        linear(), zoom(),
+        literal(6), literal(50),
+        literal(20), literal(100)
+      ),
+      // 1
+      interpolate(
+        linear(), zoom(),
+        literal(12), literal(70),
+        literal(20), literal(100)
+      ),
+      // 2
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(7),
+        literal(5), literal(50)
+      ),
+      // 3
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(7),
+        literal(5), literal(50)
+      ),
+      // 4
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(7),
+        literal(5), literal(50)
+      ),
+      // 5
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(7),
+        literal(15), literal(200)
+      ),
+      // 6
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(70)
+      ),
+      // 7
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(200)
+      )
+    };
+  }
+
+  private void initHeatmapIntensityStops() {
+    listOfHeatmapIntensityStops = new Float[] {
+      // 8
+      0.25f,
+      // 9
+      0.8f,
+      // 10
+      0.25f,
+      // 11
+      0.5f,
+      // 0
+      0.6f,
+      // 1
+      0.3f,
+      // 2
+      1f,
+      // 3
+      1f,
+      // 4
+      1f,
+      // 5
+      1f,
+      // 6
+      1.5f,
+      // 7
+      0.8f
+    };
+  }
+
+  @Override
+  public boolean onCreateOptionsMenu(Menu menu) {
+    // Inflate the menu; this adds items to the action bar if it is present.
+    getMenuInflater().inflate(R.menu.menu_satellite_heatmap_event, menu);
+    return true;
+  }
+
+  @Override
+  public boolean onOptionsItemSelected(MenuItem item) {
+    int id = item.getItemId();
+    if (id == R.id.heatmap_style_switch) {
+      heatmapSwitchIndex++;
+      if (heatmapSwitchIndex == listOfHeatmapColors.length - 1) {
+        heatmapSwitchIndex = 0;
+      }
+      if (mapboxMap.getLayer(HEATMAP_LAYER_ID) != null) {
+        mapboxMap.getLayer(HEATMAP_LAYER_ID).setProperties(
+          heatmapColor(listOfHeatmapColors[heatmapSwitchIndex]),
+          heatmapRadius(listOfHeatmapRadiusStops[heatmapSwitchIndex]),
+          heatmapIntensity(listOfHeatmapIntensityStops[heatmapSwitchIndex])
+        );
+      }
+    }
+    return super.onOptionsItemSelected(item);
   }
 
   // Add the mapView lifecycle to the activity's lifecycle methods
