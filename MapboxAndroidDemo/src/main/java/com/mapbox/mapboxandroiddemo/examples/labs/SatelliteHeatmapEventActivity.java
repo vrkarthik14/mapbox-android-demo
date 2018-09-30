@@ -12,11 +12,18 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.CardView;
+import android.support.v7.widget.DefaultItemAnimator;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.LinearSnapHelper;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SnapHelper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -34,12 +41,10 @@ import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.style.expressions.Expression;
 import com.mapbox.mapboxsdk.style.layers.HeatmapLayer;
-import com.mapbox.mapboxsdk.style.layers.HillshadeLayer;
 import com.mapbox.mapboxsdk.style.layers.Layer;
 import com.mapbox.mapboxsdk.style.layers.RasterLayer;
 import com.mapbox.mapboxsdk.style.layers.SymbolLayer;
 import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
-import com.mapbox.mapboxsdk.style.sources.RasterDemSource;
 import com.mapbox.mapboxsdk.style.sources.RasterSource;
 import com.mapbox.mapboxsdk.style.sources.Source;
 
@@ -47,6 +52,7 @@ import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -66,8 +72,6 @@ import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapColor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapIntensity;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapOpacity;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapRadius;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.hillshadeHighlightColor;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.hillshadeShadowColor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAnchor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
@@ -81,8 +85,6 @@ import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.rasterOpacity;
 public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   OnMapReadyCallback, MapboxMap.OnMapClickListener, MapboxMap.OnCameraMoveListener {
 
-
-  private MapView mapView;
   private static final String TAG = "SatelliteHeatmapEvent";
   private static final String HIGHLIGHTED_EVENT_LAYER_ID = "HIGHLIGHTED_EVENT_LAYER_ID";
   private static final String PROPERTY_SELECTED = "selected";
@@ -91,14 +93,12 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private static final String HEATMAP_LAYER_SOURCE = "earthquakes";
   private static final String SATELLITE_RASTER_SOURCE_ID = "satellite-raster-source-id";
   private static final String SATELLITE_RASTER_LAYER_ID = "satellite-raster-layer-id";
-  private static final String LAYER_ID = "hillshade-layer";
-  private static final String LAYER_BELOW_ID = "waterway-river-canal-shadow";
-  private static final String SOURCE_ID = "hillshade-source";
-  private static final String SOURCE_URL = "mapbox://mapbox.terrain-rgb";
-  private static final String HILLSHADE_HIGHLIGHT_COLOR = "#008924";
+  private static final String HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID = "HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID";
+  private static String HEATMAP_URL;
   private MapboxMap mapboxMap;
-  private String HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID = "HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID";
+  private MapView mapView;
   private GeoJsonSource source;
+  private Layer poiLayer;
   private FeatureCollection highlightedEventFeatureCollection;
   private HashMap<String, View> viewMap;
   private Expression[] listOfHeatmapColors;
@@ -106,12 +106,16 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private Float[] listOfHeatmapIntensityStops;
   private int heatmapSwitchIndex;
 
-  private Layer poiLayer;
-
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     heatmapSwitchIndex = 0;
+
+    HEATMAP_URL =
+      "https://api.mapbox.com/datasets/v1/appsatmapboxcom/"
+        + "cjmmk40py05kv2vnki7g6ikrd/features?&access_token="
+        + getString(R.string.access_token);
+
 
     // Mapbox access token is configured here. This needs to be called either in your application
     // object or in the same activity which contains the mapview.
@@ -152,11 +156,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     /*addHillshadeSource();
     addHillshadeLayer();*/
 
-
-    Log.d(TAG, "onMapReady: here 1");
     new LoadHighlightedEventGeoJsonDataTask(this).execute();
-
-    Log.d(TAG, "onMapReady: here 2");
 
     // Add heatmap data
     initHeatmapColors();
@@ -165,22 +165,15 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     addHeatmapSource();
     addHeatmapLayer();
 
-    // Add satellite raster layer for viewing satellite photos once the camera is close enough to the map
+    // Add satellite raster layer for viewing satellite photos once the camera is close enough to the mapboxMap
     addSatelliteRasterSource();
     addSatelliteRasterLayer();
 
-    /*// Animate the map camera so that it's closer to the map
-    CameraPosition newCameraPosition = new CameraPosition.Builder()
-      .zoom(11.047)
-      .build();
-    mapboxMap.animateCamera(
-      CameraUpdateFactory.newCameraPosition(newCameraPosition), 2600);*/
-
-
-    // Add separate layer of POI text so that POIs appear when zoomed in close enough to the map
+    // Add separate layer of POI text so that POIs appear when zoomed in close enough to the mapboxMap
     setPoiLayer();
 
     mapboxMap.addOnMapClickListener(this);
+    initRecyclerView();
   }
 
   @Override
@@ -206,16 +199,16 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   public void onCameraMove() {
     Log.d(TAG, "onCameraMove: camera zoom = " + mapboxMap.getCameraPosition().zoom);
 
-    if (mapboxMap.getCameraPosition().zoom >= 14) {
+    /*if (mapboxMap.getCameraPosition().zoom >= 14) {
       mapboxMap.addLayer(poiLayer);
     }
     if (mapboxMap.getCameraPosition().zoom < 14) {
       mapboxMap.removeLayer(poiLayer);
-    }
+    }*/
   }
 
   /**
-   * Adds the GeoJSON source to the map
+   * Adds the GeoJSON source to the mapboxMap
    */
   private void initHighlightedEventFeatureCollection() {
     source = new GeoJsonSource(HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID, highlightedEventFeatureCollection);
@@ -223,7 +216,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   }
 
   /**
-   * Updates the display of data on the map after the FeatureCollection has been modified
+   * Updates the display of data on the mapboxMap after the FeatureCollection has been modified
    */
   private void refreshSource() {
     if (source != null && highlightedEventFeatureCollection != null) {
@@ -280,7 +273,8 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
 
           Point selectedFeaturePoint = (Point) featureList.get(i).geometry();
           CameraPosition position = new CameraPosition.Builder()
-            .target(new LatLng(selectedFeaturePoint.latitude(), selectedFeaturePoint.longitude())) // Sets the new camera position
+            .target(new LatLng(selectedFeaturePoint.latitude(),
+              selectedFeaturePoint.longitude())) // Sets the new camera position
             .build(); // Creates a CameraPosition from the builder
 
           mapboxMap.animateCamera(CameraUpdateFactory
@@ -332,7 +326,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
       // calling addImages is faster as separate addImage calls for each bitmap.
       mapboxMap.addImages(imageMap);
     }
-    // need to store reference to views to be able to use them as hitboxes for click events.
+    // need to store reference to views to be able to use them as hit boxes for click events.
     this.viewMap = viewMap;
   }
 
@@ -426,8 +420,8 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
             inflater.inflate(R.layout.symbol_layer_satellite_heatmap_event_callout, null);
 
           ImageView eventImageView = highlightedEventFrameLayout.findViewById(R.id.heatmap_event_imageview);
-          eventImageView.setImageDrawable(ContextCompat.getDrawable(activity.getApplicationContext()
-            , R.drawable.heatmap_event_baseball_game));
+          eventImageView.setImageDrawable(ContextCompat.getDrawable(activity.getApplicationContext(),
+            R.drawable.heatmap_event_baseball_game));
 
           String name = feature.getStringProperty(PROPERTY_EVENT_TITLE);
           TextView titleTextView = highlightedEventFrameLayout.findViewById(R.id.heatmap_event_title_textview);
@@ -460,7 +454,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   /**
    * Utility class to generate Bitmaps for Symbol.
    * <p>
-   * Bitmaps can be added to the map with {@link com.mapbox.mapboxsdk.maps.MapboxMap#addImage(String, Bitmap)}
+   * Bitmaps can be added to the mapboxMap with {@link com.mapbox.mapboxsdk.maps.MapboxMap#addImage(String, Bitmap)}
    * </p>
    */
   private static class SymbolGenerator {
@@ -490,9 +484,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private void addHeatmapSource() {
     try {
       mapboxMap.addSource(new GeoJsonSource(HEATMAP_LAYER_SOURCE, new URL(
-        "https://api.mapbox.com/datasets/v1/appsatmapboxcom/cjmmk40py05kv2vnki7g6ikrd/features?&access_token="
-          + getString(R.string.access_token)
-      )));
+        HEATMAP_URL)));
     } catch (MalformedURLException malformedUrlException) {
       Timber.e(malformedUrlException, "That's not an url... ");
     }
@@ -527,16 +519,16 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     Source satelliteRasterSource = new RasterSource(SATELLITE_RASTER_SOURCE_ID,
       "mapbox://mapbox.satellite", 512);
 
-    // Add the source to the map
+    // Add the source to the mapboxMap
     mapboxMap.addSource(satelliteRasterSource);
   }
 
   private void addSatelliteRasterLayer() {
-    // Create a new map layer for the satellite raster images
+    // Create a new mapboxMap layer for the satellite raster images
     RasterLayer satelliteRasterLayer = new RasterLayer(SATELLITE_RASTER_LAYER_ID,
       SATELLITE_RASTER_SOURCE_ID);
 
-    // Use runtime styling to adjust the satellite layer's opacity based on the map camera's zoom level
+    // Use runtime styling to adjust the satellite layer's opacity based on the mapboxMap camera's zoom level
     satelliteRasterLayer.withProperties(
       rasterOpacity(interpolate(linear(), zoom(),
         stop(13.5, 0),
@@ -544,7 +536,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
       ))
     );
 
-    // Add the satellite layer to the map
+    // Add the satellite layer to the mapboxMap
     mapboxMap.addLayer(satelliteRasterLayer);
   }
 
@@ -554,30 +546,9 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     poiLayer = mapboxMap.getLayer("poi-scalerank4-l1");
   }
 
-  private void addHillshadeSource() {
-    // Add hillshade data source to map
-    RasterDemSource rasterDemSource = new RasterDemSource(SOURCE_ID, SOURCE_URL);
-    mapboxMap.addSource(rasterDemSource);
-  }
-
-  private void addHillshadeLayer() {
-
-
-    // Create and style a hillshade layer to add to the map
-    HillshadeLayer hillshadeLayer = new HillshadeLayer(LAYER_ID, SOURCE_ID).withProperties(
-      hillshadeHighlightColor(Color.parseColor(HILLSHADE_HIGHLIGHT_COLOR)),
-      hillshadeShadowColor(Color.BLACK)
-    );
-
-    // Add the hillshade layer to the map
-    mapboxMap.addLayerBelow(hillshadeLayer, LAYER_BELOW_ID);
-  }
-
   private void initHeatmapColors() {
     listOfHeatmapColors = new Expression[] {
-
-
-      // 8
+      // 0
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(0, 0, 0, 0.01),
@@ -592,7 +563,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(0.9), rgba(196, 0, 1, 0.8),
         literal(0.95), rgba(121, 0, 0, 0.8)
       ),
-      // 9
+      // 1
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(0, 0, 0, 0.01),
@@ -607,7 +578,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(0.9), rgba(196, 0, 1, 0.8),
         literal(0.95), rgba(121, 0, 0, 0.8)
       ),
-      // 10
+      // 2
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(0, 0, 0, 0.01),
@@ -622,7 +593,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(0.9), rgba(196, 0, 1, 0.8),
         literal(0.95), rgba(121, 0, 0, 0.8)
       ),
-      // 11
+      // 3
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(0, 0, 0, 0.25),
@@ -632,7 +603,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(0.50), rgba(255, 229, 121, .8),
         literal(1), rgba(255, 253, 244, .8)
       ),
-      // 0
+      // 4
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(0, 0, 0, 0.01),
@@ -641,7 +612,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(0.75), rgb(186, 59, 30),
         literal(0.9), rgb(255, 0, 0)
       ),
-      // 1
+      // 5
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(255, 255, 255, 0.4),
@@ -650,7 +621,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(0.75), rgba(252, 167, 55, 1.0),
         literal(1), rgba(255, 78, 70, 1.0)
       ),
-      // 2
+      // 6
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(12, 182, 253, 0.0),
@@ -659,14 +630,14 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(0.75), rgba(229, 134, 15, 0.5),
         literal(1), rgba(230, 255, 55, 0.6)
       ),
-      // 3
+      // 7
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(135, 255, 135, 0.2),
         literal(0.5), rgba(255, 99, 0, 0.5),
         literal(1), rgba(47, 21, 197, 0.2)
       ),
-      // 4
+      // 8
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(4, 0, 0, 0.2),
@@ -676,7 +647,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(0.50), rgba(255, 229, 121, 1.0),
         literal(1), rgba(255, 253, 244, 1.0)
       ),
-      // 5
+      // 9
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(0, 0, 0, 0.01),
@@ -687,7 +658,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(0.95), rgba(255, 228, 173, 0.8),
         literal(1), rgba(255, 253, 244, .8)
       ),
-      //6
+      // 10
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(0, 0, 0, 0.01),
@@ -698,7 +669,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
         literal(1), rgba(255, 255, 255, 0.8)
       ),
 
-      //7
+      // 11
       interpolate(
         linear(), heatmapDensity(),
         literal(0.01), rgba(0, 0, 0, 0.01),
@@ -719,73 +690,73 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private void initHeatmapRadiusStops() {
     listOfHeatmapRadiusStops = new Expression[] {
 
-      // 8
-      interpolate(
-        linear(), zoom(),
-        literal(1), literal(10),
-        literal(8), literal(200)
-      ),
-      // 9
-      interpolate(
-        linear(), zoom(),
-        literal(1), literal(10),
-        literal(8), literal(200)
-      ),
-      // 10
-      interpolate(
-        linear(), zoom(),
-        literal(1), literal(10),
-        literal(8), literal(200)
-      ),
-      // 11
-      interpolate(
-        linear(), zoom(),
-        literal(1), literal(10),
-        literal(8), literal(200)
-      ),
       // 0
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(200)
+      ),
+      // 1
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(200)
+      ),
+      // 2
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(200)
+      ),
+      // 3
+      interpolate(
+        linear(), zoom(),
+        literal(1), literal(10),
+        literal(8), literal(200)
+      ),
+      // 4
       interpolate(
         linear(), zoom(),
         literal(6), literal(50),
         literal(20), literal(100)
       ),
-      // 1
+      // 5
       interpolate(
         linear(), zoom(),
         literal(12), literal(70),
         literal(20), literal(100)
       ),
-      // 2
+      // 6
       interpolate(
         linear(), zoom(),
         literal(1), literal(7),
         literal(5), literal(50)
       ),
-      // 3
+      // 7
       interpolate(
         linear(), zoom(),
         literal(1), literal(7),
         literal(5), literal(50)
       ),
-      // 4
+      // 8
       interpolate(
         linear(), zoom(),
         literal(1), literal(7),
         literal(5), literal(50)
       ),
-      // 5
+      // 9
       interpolate(
         linear(), zoom(),
         literal(1), literal(7),
         literal(15), literal(200)
       ),
-      // 6
+      // 10
       interpolate(
         linear(), zoom(),
         literal(1), literal(10),
         literal(8), literal(70)
       ),
-      // 7
+      // 11
       interpolate(
         linear(), zoom(),
         literal(1), literal(10),
@@ -796,29 +767,29 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
 
   private void initHeatmapIntensityStops() {
     listOfHeatmapIntensityStops = new Float[] {
-      // 8
-      0.25f,
-      // 9
-      0.8f,
-      // 10
-      0.25f,
-      // 11
-      0.5f,
       // 0
-      0.6f,
+      0.25f,
       // 1
-      0.3f,
+      0.8f,
       // 2
-      1f,
+      0.25f,
       // 3
-      1f,
+      0.5f,
       // 4
-      1f,
+      0.6f,
       // 5
-      1f,
+      0.3f,
       // 6
-      1.5f,
+      1f,
       // 7
+      1f,
+      // 8
+      1f,
+      // 9
+      1f,
+      // 10
+      1.5f,
+      // 11
       0.8f
     };
   }
@@ -847,6 +818,31 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
       }
     }
     return super.onOptionsItemSelected(item);
+  }
+
+  private void initRecyclerView() {
+    RecyclerView recyclerView = findViewById(R.id.rv_on_top_of_map);
+    LocationRecyclerViewAdapter locationAdapter =
+      new LocationRecyclerViewAdapter(createRecyclerViewLocations(), mapboxMap);
+    recyclerView.setLayoutManager(new LinearLayoutManager(getApplicationContext(),
+      LinearLayoutManager.HORIZONTAL, true));
+    recyclerView.setItemAnimator(new DefaultItemAnimator());
+    recyclerView.setAdapter(locationAdapter);
+    SnapHelper snapHelper = new LinearSnapHelper();
+    snapHelper.attachToRecyclerView(recyclerView);
+  }
+
+  private List<SingleHighlightedEvent> createRecyclerViewLocations() {
+    ArrayList<SingleHighlightedEvent> locationList = new ArrayList<>();
+    for (Feature singleFeature : highlightedEventFeatureCollection.features()) {
+      Point singleFeatureCoordinates = (Point) singleFeature.geometry();
+      SingleHighlightedEvent singleLocation = new SingleHighlightedEvent();
+      singleLocation.setName(singleFeature.getStringProperty("name"));
+      singleLocation.setCoordinates(new LatLng(
+        singleFeatureCoordinates.latitude(), singleFeatureCoordinates.longitude()));
+      locationList.add(singleLocation);
+    }
+    return locationList;
   }
 
   // Add the mapView lifecycle to the activity's lifecycle methods
@@ -890,6 +886,100 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   protected void onSaveInstanceState(Bundle outState) {
     super.onSaveInstanceState(outState);
     mapView.onSaveInstanceState(outState);
+  }
+
+  /**
+   * POJO model class for a single location in the recyclerview
+   */
+  class SingleHighlightedEvent {
+
+    private String highlightedEventName;
+    private LatLng highlightedEventCoordinates;
+
+    public String getHighlightedEventName() {
+      return highlightedEventName;
+    }
+
+    public void setName(String highlightedEventName) {
+      this.highlightedEventName = highlightedEventName;
+    }
+
+    public LatLng getHighlightedEventCoordinates() {
+      return highlightedEventCoordinates;
+    }
+
+    public void setCoordinates(LatLng highlightedEventCoordinates) {
+      this.highlightedEventCoordinates = highlightedEventCoordinates;
+    }
+  }
+
+  static class LocationRecyclerViewAdapter extends
+    RecyclerView.Adapter<LocationRecyclerViewAdapter.MyViewHolder> {
+
+    private List<SingleHighlightedEvent> locationList;
+    private MapboxMap mapboxMap;
+
+    public LocationRecyclerViewAdapter(List<SingleHighlightedEvent> locationList, MapboxMap mapBoxMap) {
+      this.locationList = locationList;
+      this.mapboxMap = mapBoxMap;
+    }
+
+    @Override
+    public LocationRecyclerViewAdapter.MyViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+      View itemView = LayoutInflater.from(parent.getContext())
+        .inflate(R.layout.rv_on_top_of_map_card, parent, false);
+      return new LocationRecyclerViewAdapter.MyViewHolder(itemView);
+    }
+
+    @Override
+    public void onBindViewHolder(LocationRecyclerViewAdapter.MyViewHolder holder, int position) {
+      SingleHighlightedEvent singleRecyclerViewLocation = locationList.get(position);
+      holder.name.setText(singleRecyclerViewLocation.getHighlightedEventName());
+      holder.setClickListener(new ItemClickListener() {
+        @Override
+        public void onClick(View view, int position) {
+          LatLng selectedLocationLatLng = locationList.get(position)
+            .getHighlightedEventCoordinates();
+          CameraPosition newCameraPosition = new CameraPosition.Builder()
+            .target(selectedLocationLatLng)
+            .build();
+          mapboxMap.easeCamera(CameraUpdateFactory.newCameraPosition(newCameraPosition));
+        }
+      });
+    }
+
+    @Override
+    public int getItemCount() {
+      return locationList.size();
+    }
+
+    static class MyViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+      TextView name;
+      TextView numOfBeds;
+      CardView singleCard;
+      ItemClickListener clickListener;
+
+      MyViewHolder(View view) {
+        super(view);
+        name = view.findViewById(R.id.location_title_tv);
+        numOfBeds = view.findViewById(R.id.location_num_of_beds_tv);
+        singleCard = view.findViewById(R.id.single_location_cardview);
+        singleCard.setOnClickListener(this);
+      }
+
+      public void setClickListener(ItemClickListener itemClickListener) {
+        this.clickListener = itemClickListener;
+      }
+
+      @Override
+      public void onClick(View view) {
+        clickListener.onClick(view, getLayoutPosition());
+      }
+    }
+  }
+
+  public interface ItemClickListener {
+    void onClick(View view, int position);
   }
 }
 // #-code-snippet: satellite-heatmap-event-activity full-java

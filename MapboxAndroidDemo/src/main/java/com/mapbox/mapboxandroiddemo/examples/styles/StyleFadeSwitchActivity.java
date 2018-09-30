@@ -49,7 +49,12 @@ public class StyleFadeSwitchActivity extends AppCompatActivity implements
   @Override
   public void onMapReady(MapboxMap mapboxMap) {
 
+    // Create a data source for the satellite raster images
+    Source satelliteRasterSource = new RasterSource("SATELLITE_RASTER_SOURCE_ID",
+      "mapbox://mapbox.satellite", 512);
 
+    // Add the source to the map
+    mapboxMap.addSource(satelliteRasterSource);
 
     // Create a new map layer for the satellite raster images
     RasterLayer satelliteRasterLayer = new RasterLayer("SATELLITE_RASTER_LAYER_ID", "SATELLITE_RASTER_SOURCE_ID");

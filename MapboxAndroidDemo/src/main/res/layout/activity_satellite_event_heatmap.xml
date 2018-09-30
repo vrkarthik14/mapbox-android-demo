@@ -10,5 +10,12 @@
         android:layout_height="match_parent"
         mapbox:mapbox_styleUrl="@string/mapbox_style_mapbox_streets" />
 
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/heatmap_event_rv_on_top_of_map"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginBottom="8dp" />
+
 
 </FrameLayout>
