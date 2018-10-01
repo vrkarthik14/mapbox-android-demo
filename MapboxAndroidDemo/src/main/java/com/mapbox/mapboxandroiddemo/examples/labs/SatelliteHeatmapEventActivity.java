@@ -58,10 +58,12 @@ import java.util.List;
 
 import timber.log.Timber;
 
+import static com.mapbox.mapboxsdk.style.expressions.Expression.get;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.heatmapDensity;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.interpolate;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.linear;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.literal;
+import static com.mapbox.mapboxsdk.style.expressions.Expression.match;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.rgb;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.rgba;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.stop;
@@ -74,8 +76,10 @@ import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapOpacity;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.heatmapRadius;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAnchor;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconIgnorePlacement;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconOffset;
+import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconSize;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.rasterOpacity;
 
 /**
@@ -86,6 +90,8 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   OnMapReadyCallback, MapboxMap.OnMapClickListener, MapboxMap.OnCameraMoveListener {
 
   private static final String TAG = "SatelliteHeatmapEvent";
+  private static final String POI_SOURCE_ID = "mapbox.poi";
+  private static final String POI_LAYER_ID = "mapbox.poi";
   private static final String HIGHLIGHTED_EVENT_LAYER_ID = "HIGHLIGHTED_EVENT_LAYER_ID";
   private static final String PROPERTY_SELECTED = "selected";
   private static final String PROPERTY_EVENT_TITLE = "title";
@@ -98,6 +104,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private MapboxMap mapboxMap;
   private MapView mapView;
   private GeoJsonSource source;
+  private GeoJsonSource poiSymbolLayerSource;
   private Layer poiLayer;
   private FeatureCollection highlightedEventFeatureCollection;
   private HashMap<String, View> viewMap;
@@ -157,6 +164,8 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     addHillshadeLayer();*/
 
     new LoadHighlightedEventGeoJsonDataTask(this).execute();
+    Log.d(TAG, "onMapReady: here");
+
 
     // Add heatmap data
     initHeatmapColors();
@@ -173,7 +182,28 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     setPoiLayer();
 
     mapboxMap.addOnMapClickListener(this);
-    initRecyclerView();
+//    initRecyclerView();
+
+    setUpPoiSource();
+    setUpPoiLayer();
+  }
+
+  private void setUpPoiSource() {
+    poiSymbolLayerSource = new GeoJsonSource(POI_SOURCE_ID, new );
+    mapboxMap.addSource(poiSymbolLayerSource);
+  }
+
+  private void setUpPoiLayer() {
+    SymbolLayer poiSymbolLayer = new SymbolLayer(POI_LAYER_ID, POI_SOURCE_ID)
+      .withProperties(
+        iconImage("{poi}-15"),
+
+        /* allows show all icons */
+        iconAllowOverlap(true),
+        iconIgnorePlacement(true)
+      );
+    poiSymbolLayer.setMinZoom(14.5f);
+    mapboxMap.addLayer(poiSymbolLayer);
   }
 
   @Override
@@ -190,6 +220,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     if (mapboxMap == null) {
       return;
     }
+    Log.d(TAG, "setUpData: setUpData");
     highlightedEventFeatureCollection = collection;
     initHighlightedEventFeatureCollection();
     initHighlightedEventLayer();
@@ -197,7 +228,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
 
   @Override
   public void onCameraMove() {
-    Log.d(TAG, "onCameraMove: camera zoom = " + mapboxMap.getCameraPosition().zoom);
+//    Log.d(TAG, "onCameraMove: camera zoom = " + mapboxMap.getCameraPosition().zoom);
 
     /*if (mapboxMap.getCameraPosition().zoom >= 14) {
       mapboxMap.addLayer(poiLayer);
@@ -219,8 +250,10 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
    * Updates the display of data on the mapboxMap after the FeatureCollection has been modified
    */
   private void refreshSource() {
+    Log.d(TAG, "refreshSource: refreshSource()");
     if (source != null && highlightedEventFeatureCollection != null) {
       source.setGeoJson(highlightedEventFeatureCollection);
+      Log.d(TAG, "refreshSource:       source.setGeoJson(highlightedEventFeatureCollection);\n");
     }
   }
 
@@ -423,13 +456,14 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
           eventImageView.setImageDrawable(ContextCompat.getDrawable(activity.getApplicationContext(),
             R.drawable.heatmap_event_baseball_game));
 
-          String name = feature.getStringProperty(PROPERTY_EVENT_TITLE);
+          String eventTitle = feature.getStringProperty(PROPERTY_EVENT_TITLE);
+          Log.d(TAG, "doInBackground: eventTitle = " + eventTitle);
           TextView titleTextView = highlightedEventFrameLayout.findViewById(R.id.heatmap_event_title_textview);
-          titleTextView.setText(name);
+          titleTextView.setText(eventTitle);
 
           Bitmap bitmap = SymbolGenerator.generate(highlightedEventFrameLayout);
-          imagesMap.put(name, bitmap);
-          viewMap.put(name, highlightedEventFrameLayout);
+          imagesMap.put(eventTitle, bitmap);
+          viewMap.put(eventTitle, highlightedEventFrameLayout);
         }
 
         return imagesMap;
@@ -541,7 +575,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   }
 
   private void setPoiLayer() {
-
+    Log.d(TAG, "setPoiLayer: setPoiLayer");
     // Create a data source for the satellite raster images
     poiLayer = mapboxMap.getLayer("poi-scalerank4-l1");
   }
