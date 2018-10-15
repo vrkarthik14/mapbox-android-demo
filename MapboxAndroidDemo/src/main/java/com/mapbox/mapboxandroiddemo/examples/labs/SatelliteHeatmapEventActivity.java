@@ -58,12 +58,10 @@ import java.util.List;
 
 import timber.log.Timber;
 
-import static com.mapbox.mapboxsdk.style.expressions.Expression.get;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.heatmapDensity;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.interpolate;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.linear;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.literal;
-import static com.mapbox.mapboxsdk.style.expressions.Expression.match;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.rgb;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.rgba;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.stop;
@@ -79,7 +77,6 @@ import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAnchor;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconIgnorePlacement;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconOffset;
-import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconSize;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.rasterOpacity;
 
 /**
@@ -96,14 +93,15 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private static final String PROPERTY_SELECTED = "selected";
   private static final String PROPERTY_EVENT_TITLE = "title";
   private static final String HEATMAP_LAYER_ID = "earthquakes-heat";
-  private static final String HEATMAP_LAYER_SOURCE = "earthquakes";
+  private static final String HEATMAP_LAYER_SOURCE_ID = "earthquakes";
   private static final String SATELLITE_RASTER_SOURCE_ID = "satellite-raster-source-id";
   private static final String SATELLITE_RASTER_LAYER_ID = "satellite-raster-layer-id";
   private static final String HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID = "HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID";
   private static String HEATMAP_URL;
+  private static String HIGHLIGHTED_EVENT_URL;
   private MapboxMap mapboxMap;
   private MapView mapView;
-  private GeoJsonSource source;
+  private GeoJsonSource highlightedEventSource;
   private GeoJsonSource poiSymbolLayerSource;
   private Layer poiLayer;
   private FeatureCollection highlightedEventFeatureCollection;
@@ -122,6 +120,12 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
       "https://api.mapbox.com/datasets/v1/appsatmapboxcom/"
         + "cjmmk40py05kv2vnki7g6ikrd/features?&access_token="
         + getString(R.string.access_token);
+
+    HIGHLIGHTED_EVENT_URL =
+      "https://api.mapbox.com/datasets/v1/appsatmapboxcom/"
+        + "cjn9nigoz38ru2wnvkco35bv6/features?&access_token="
+        + getString(R.string.access_token);
+
 
 
     // Mapbox access token is configured here. This needs to be called either in your application
@@ -160,44 +164,23 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
       mapboxMap.getLayer("landcover_crop").setProperties(fillColor(Color.parseColor("#7DFB51")));
     }
 
-    /*addHillshadeSource();
-    addHillshadeLayer();*/
-
-    new LoadHighlightedEventGeoJsonDataTask(this).execute();
-    Log.d(TAG, "onMapReady: here");
-
-
-    // Add heatmap data
-    initHeatmapColors();
-    initHeatmapRadiusStops();
-    initHeatmapIntensityStops();
-    addHeatmapSource();
-    addHeatmapLayer();
-
-    // Add satellite raster layer for viewing satellite photos once the camera is close enough to the mapboxMap
-    addSatelliteRasterSource();
-    addSatelliteRasterLayer();
-
-    // Add separate layer of POI text so that POIs appear when zoomed in close enough to the mapboxMap
-    setPoiLayer();
-
+    setUpData(FeatureCollection.fromFeatures(new Feature[]{}));
     mapboxMap.addOnMapClickListener(this);
 //    initRecyclerView();
-
-    setUpPoiSource();
-    setUpPoiLayer();
   }
 
   private void setUpPoiSource() {
-    poiSymbolLayerSource = new GeoJsonSource(POI_SOURCE_ID, new );
-    mapboxMap.addSource(poiSymbolLayerSource);
+    /*try {
+      mapboxMap.addSource(new GeoJsonSource(POI_SOURCE_ID, ));
+    } catch (MalformedURLException malformedUrlException) {
+      Timber.e(malformedUrlException, "That's not an url... ");
+    }*/
   }
 
   private void setUpPoiLayer() {
     SymbolLayer poiSymbolLayer = new SymbolLayer(POI_LAYER_ID, POI_SOURCE_ID)
       .withProperties(
         iconImage("{poi}-15"),
-
         /* allows show all icons */
         iconAllowOverlap(true),
         iconIgnorePlacement(true)
@@ -220,10 +203,40 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     if (mapboxMap == null) {
       return;
     }
-    Log.d(TAG, "setUpData: setUpData");
-    highlightedEventFeatureCollection = collection;
+
+    Log.d(TAG, "addData: starting");
+
+    /*addHillshadeSource();
+    addHillshadeLayer();*/
+
+
+//    new LoadHighlightedEventGeoJsonDataTask(this).execute();
+
+    Log.d(TAG, "onMapReady: starting heatmap additions");
+
+
+    // Add heatmap data
+    initHeatmapColors();
+    initHeatmapRadiusStops();
+    initHeatmapIntensityStops();
+    addHeatmapSource();
+    addHeatmapLayer();
+
+    // Add satellite raster layer for viewing satellite photos once the camera is close enough to the mapboxMap
+    addSatelliteRasterSource();
+    addSatelliteRasterLayer();
+
+
+    // Add separate layer of POI text so that POIs appear when zoomed in close enough to the mapboxMap
+    /*setPoiLayer();
+    setUpPoiSource();
+    setUpPoiLayer();*/
+
     initHighlightedEventFeatureCollection();
     initHighlightedEventLayer();
+
+
+
   }
 
   @Override
@@ -242,8 +255,13 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
    * Adds the GeoJSON source to the mapboxMap
    */
   private void initHighlightedEventFeatureCollection() {
-    source = new GeoJsonSource(HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID, highlightedEventFeatureCollection);
-    mapboxMap.addSource(source);
+    try {
+      highlightedEventSource = new GeoJsonSource(HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID, new URL(
+        HIGHLIGHTED_EVENT_URL));
+      mapboxMap.addSource(highlightedEventSource);
+    } catch (MalformedURLException malformedUrlException) {
+      Timber.e(malformedUrlException, "That's not an url... ");
+    }
   }
 
   /**
@@ -251,8 +269,8 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
    */
   private void refreshSource() {
     Log.d(TAG, "refreshSource: refreshSource()");
-    if (source != null && highlightedEventFeatureCollection != null) {
-      source.setGeoJson(highlightedEventFeatureCollection);
+    if (highlightedEventSource != null && highlightedEventFeatureCollection != null) {
+      highlightedEventSource.setGeoJson(highlightedEventFeatureCollection);
       Log.d(TAG, "refreshSource:       source.setGeoJson(highlightedEventFeatureCollection);\n");
     }
   }
@@ -517,7 +535,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
 
   private void addHeatmapSource() {
     try {
-      mapboxMap.addSource(new GeoJsonSource(HEATMAP_LAYER_SOURCE, new URL(
+      mapboxMap.addSource(new GeoJsonSource(HEATMAP_LAYER_SOURCE_ID, new URL(
         HEATMAP_URL)));
     } catch (MalformedURLException malformedUrlException) {
       Timber.e(malformedUrlException, "That's not an url... ");
@@ -525,9 +543,9 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   }
 
   private void addHeatmapLayer() {
-    HeatmapLayer layer = new HeatmapLayer(HEATMAP_LAYER_ID, HEATMAP_LAYER_SOURCE);
-    layer.setSourceLayer(HEATMAP_LAYER_SOURCE);
-    layer.setProperties(
+    HeatmapLayer heatmapLayer = new HeatmapLayer(HEATMAP_LAYER_ID, HEATMAP_LAYER_SOURCE_ID);
+    heatmapLayer.setSourceLayer(HEATMAP_LAYER_SOURCE_ID);
+    heatmapLayer.setProperties(
       heatmapColor(listOfHeatmapColors[heatmapSwitchIndex]),
 
       // Increase the heatmap color weight weight by zoom level
@@ -542,9 +560,9 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     );
 
     if (mapboxMap.getLayer("waterway-label") == null) {
-      mapboxMap.addLayer(layer);
+      mapboxMap.addLayer(heatmapLayer);
     } else {
-      mapboxMap.addLayerAbove(layer, "waterway-label");
+      mapboxMap.addLayerAbove(heatmapLayer, "waterway-label");
     }
   }
 
