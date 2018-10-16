@@ -1,7 +1,5 @@
 package com.mapbox.mapboxandroiddemo.examples.labs;
 
-// #-code-snippet: satellite-heatmap-event-activity full-java
-
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -58,6 +56,7 @@ import java.util.List;
 
 import timber.log.Timber;
 
+import static com.mapbox.mapboxsdk.camera.CameraUpdateFactory.newCameraPosition;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.heatmapDensity;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.interpolate;
 import static com.mapbox.mapboxsdk.style.expressions.Expression.linear;
@@ -104,6 +103,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   private GeoJsonSource highlightedEventSource;
   private GeoJsonSource poiSymbolLayerSource;
   private Layer poiLayer;
+  private SymbolLayer highlightedEventSymbolLayer;
   private FeatureCollection highlightedEventFeatureCollection;
   private HashMap<String, View> viewMap;
   private Expression[] listOfHeatmapColors;
@@ -125,7 +125,6 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
       "https://api.mapbox.com/datasets/v1/appsatmapboxcom/"
         + "cjn9nigoz38ru2wnvkco35bv6/features?&access_token="
         + getString(R.string.access_token);
-
 
 
     // Mapbox access token is configured here. This needs to be called either in your application
@@ -164,7 +163,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
       mapboxMap.getLayer("landcover_crop").setProperties(fillColor(Color.parseColor("#7DFB51")));
     }
 
-    setUpData(FeatureCollection.fromFeatures(new Feature[]{}));
+    setUpData(FeatureCollection.fromFeatures(new Feature[] {}));
     mapboxMap.addOnMapClickListener(this);
 //    initRecyclerView();
   }
@@ -200,45 +199,74 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
    * @param collection the FeatureCollection to set equal to the globally-declared FeatureCollection
    */
   public void setUpData(final FeatureCollection collection) {
+    Log.d(TAG, "addData: starting");
+
     if (mapboxMap == null) {
       return;
     }
 
-    Log.d(TAG, "addData: starting");
+    highlightedEventFeatureCollection = collection;
 
     /*addHillshadeSource();
     addHillshadeLayer();*/
 
 
 //    new LoadHighlightedEventGeoJsonDataTask(this).execute();
-
     Log.d(TAG, "onMapReady: starting heatmap additions");
+    addHighlightedEvent();
 
 
-    // Add heatmap data
+    addHeatmap();
+
+    // Add satellite raster layer for viewing satellite photos once the camera is close enough to the mapboxMap
+    addSatellite();
+
+    // Add POI
+    addPoi();
+
+    // Add separate layer of POI text so that POIs appear when zoomed in close enough to the mapboxMap
+    addHighlightedEvent();
+  }
+
+  /**
+   * Add data to the map and display it in a heatmap layer
+   */
+  private void addHeatmap() {
     initHeatmapColors();
     initHeatmapRadiusStops();
     initHeatmapIntensityStops();
     addHeatmapSource();
     addHeatmapLayer();
+  }
 
-    // Add satellite raster layer for viewing satellite photos once the camera is close enough to the mapboxMap
+  /**
+   * Add a satellite raster layer that's displayed when the camera is close enough to the map
+   */
+  private void addSatellite() {
     addSatelliteRasterSource();
     addSatelliteRasterLayer();
+  }
 
-
-    // Add separate layer of POI text so that POIs appear when zoomed in close enough to the mapboxMap
+  /**
+   * Add a SymbolLayer with POI data that's displayed when the camera is close enough to the map
+   */
+  private void addPoi() {
     /*setPoiLayer();
     setUpPoiSource();
     setUpPoiLayer();*/
-
-    initHighlightedEventFeatureCollection();
-    initHighlightedEventLayer();
-
-
-
   }
 
+  /**
+   * Add a SymbolLayer with special event icons
+   */
+  private void addHighlightedEvent() {
+    initHighlightedEventFeatureCollection();
+    initHighlightedEventLayer();
+  }
+
+  /**
+   * Callback for when the map camera moves.
+   */
   @Override
   public void onCameraMove() {
 //    Log.d(TAG, "onCameraMove: camera zoom = " + mapboxMap.getCameraPosition().zoom);
@@ -265,24 +293,13 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
   }
 
   /**
-   * Updates the display of data on the mapboxMap after the FeatureCollection has been modified
-   */
-  private void refreshSource() {
-    Log.d(TAG, "refreshSource: refreshSource()");
-    if (highlightedEventSource != null && highlightedEventFeatureCollection != null) {
-      highlightedEventSource.setGeoJson(highlightedEventFeatureCollection);
-      Log.d(TAG, "refreshSource:       source.setGeoJson(highlightedEventFeatureCollection);\n");
-    }
-  }
-
-  /**
    * Setup a layer with Android SDK call-outs
    * <p>
    * name of the feature is used as key for the iconImage
    * </p>
    */
   private void initHighlightedEventLayer() {
-    mapboxMap.addLayer(new SymbolLayer(HIGHLIGHTED_EVENT_LAYER_ID, HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID)
+    highlightedEventSymbolLayer = new SymbolLayer(HIGHLIGHTED_EVENT_LAYER_ID, HIGHLIGHTED_EVENT_GEOJSON_SOURCE_ID)
       .withProperties(
         /* show image with id title based on the value of the name feature property */
         iconImage("{name}"),
@@ -295,10 +312,24 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
 
         /* offset the info window to be above the marker */
         iconOffset(new Float[] {-2f, -25f})
-      ));
+      );
+
+    mapboxMap.addLayer(highlightedEventSymbolLayer);
     // TODO: Uncomment out code below?
     /* add a filter to show only when selected feature property is true *//*
       .withFilter(eq((get(PROPERTY_SELECTED)), literal(true))));*/
+  }
+
+
+  /**
+   * Updates the display of data on the mapboxMap after the FeatureCollection has been modified
+   */
+  private void refreshSource() {
+    Log.d(TAG, "refreshSource: refreshSource()");
+    if (highlightedEventSource != null && highlightedEventFeatureCollection != null) {
+      highlightedEventSource.setGeoJson(highlightedEventFeatureCollection);
+      Log.d(TAG, "refreshSource:       source.setGeoJson(highlightedEventFeatureCollection);\n");
+    }
   }
 
   /**
@@ -328,8 +359,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
               selectedFeaturePoint.longitude())) // Sets the new camera position
             .build(); // Creates a CameraPosition from the builder
 
-          mapboxMap.animateCamera(CameraUpdateFactory
-            .newCameraPosition(position), 15000);
+          mapboxMap.animateCamera(newCameraPosition(position), 15000);
         }
       }
     }
@@ -483,7 +513,6 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
           imagesMap.put(eventTitle, bitmap);
           viewMap.put(eventTitle, highlightedEventFrameLayout);
         }
-
         return imagesMap;
       } else {
         return null;
@@ -995,7 +1024,7 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
           CameraPosition newCameraPosition = new CameraPosition.Builder()
             .target(selectedLocationLatLng)
             .build();
-          mapboxMap.easeCamera(CameraUpdateFactory.newCameraPosition(newCameraPosition));
+          mapboxMap.animateCamera(newCameraPosition(newCameraPosition));
         }
       });
     }
@@ -1034,4 +1063,3 @@ public class SatelliteHeatmapEventActivity extends AppCompatActivity implements
     void onClick(View view, int position);
   }
 }
-// #-code-snippet: satellite-heatmap-event-activity full-java
