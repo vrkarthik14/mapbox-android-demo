@@ -1,7 +1,5 @@
 package com.mapbox.mapboxandroiddemo.examples.dds;
 
-// #-code-snippet: animated-dash-line full-java
-
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -36,9 +34,9 @@ public class AnimatedDashLineActivity extends AppCompatActivity implements OnMap
   private MapView mapView;
   private MapboxMap mapboxMap;
   private Handler handler;
-  private String tag = "AnimatedDashLine";
+  private String TAG = "AnimatedDashLine";
   private RefreshDashAndGapRunnable refreshDashAndGapRunnable;
-  private int animationSpeedMillseconds = 50;
+  private int animationSpeedMillseconds = 80;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -61,11 +59,8 @@ public class AnimatedDashLineActivity extends AppCompatActivity implements OnMap
   public void onMapReady(MapboxMap mapboxMap) {
     AnimatedDashLineActivity.this.mapboxMap = mapboxMap;
     initBikePathLayer();
-    Log.d(tag, "onMapReady: here 1");
     Runnable runnable = new RefreshDashAndGapRunnable();
-    Log.d(tag, "onMapReady: runnable made");
     handler.postDelayed(runnable, animationSpeedMillseconds);
-    Log.d(tag, "onMapReady: here 2");
   }
 
   private void initBikePathLayer() {
@@ -90,7 +85,7 @@ public class AnimatedDashLineActivity extends AppCompatActivity implements OnMap
   private class RefreshDashAndGapRunnable implements Runnable {
 
     private float valueOne, valueTwo, valueThree, valueFour, ValueFive;
-    private float dashLength = 1;
+    private float dashLength = 3;
     private float gapLength = 3;
 
     // We divide the animation up into 40 totalNumberOfSteps to make careful use of the finite space in
@@ -113,9 +108,11 @@ public class AnimatedDashLineActivity extends AppCompatActivity implements OnMap
       Log.d(TAG, "RefreshDashAndGapRunnable run: ");
       currentStep = currentStep + 1;
       if (currentStep >= totalNumberOfSteps) {
+        Log.d(TAG, "run: currentStep >= totalNumberOfSteps");
         currentStep = 0;
       }
       if (currentStep < dashSteps) {
+        Log.d(TAG, "run: currentStep < dashSteps");
         valueOne = currentStep / dashSteps;
         valueTwo = (1 - valueOne) * dashLength;
         valueThree = gapLength;
@@ -156,6 +153,7 @@ public class AnimatedDashLineActivity extends AppCompatActivity implements OnMap
   protected void onStop() {
     super.onStop();
     mapView.onStop();
+    handler.removeCallbacks(refreshDashAndGapRunnable);
   }
 
   @Override
@@ -174,7 +172,6 @@ public class AnimatedDashLineActivity extends AppCompatActivity implements OnMap
   protected void onDestroy() {
     super.onDestroy();
     mapView.onDestroy();
-    handler.removeCallbacks(refreshDashAndGapRunnable);
     refreshDashAndGapRunnable = null;
     handler = null;
   }
@@ -185,4 +182,3 @@ public class AnimatedDashLineActivity extends AppCompatActivity implements OnMap
     mapView.onSaveInstanceState(outState);
   }
 }
-// #-end-code-snippet: animated-dash-line full-java
