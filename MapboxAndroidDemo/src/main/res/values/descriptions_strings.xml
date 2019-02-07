@@ -108,6 +108,6 @@
     <string name="activity_lab_magic_window_description">Combine two maps for a magic window effect</string>
     <string name="activity_lab_fog_background_description">Add a gradient on top of a MapView to show a background fog effect.</string>
     <string name="activity_china_simple_china_mapview_description">Show an accurate and government-approved China map in your app using the Mapbox Maps SDK.</string>
-    <string name="activity_labs_ambient_noise_extrusion_height_description">Set extrusion height based on the noise level recorded by the device's microphone.</string>
+    <string name="activity_labs_ambient_noise_extrusion_height_description">Set extrusion height based on the noise level recorded by the device\'s microphone.</string>
 
 </resources>

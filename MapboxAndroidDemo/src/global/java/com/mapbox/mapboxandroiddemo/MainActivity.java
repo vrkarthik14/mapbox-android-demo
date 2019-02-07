@@ -30,6 +30,7 @@ import com.google.firebase.perf.metrics.AddTrace;
 import com.mapbox.mapboxandroiddemo.adapter.ExampleAdapter;
 import com.mapbox.mapboxandroiddemo.commons.AnalyticsTracker;
 import com.mapbox.mapboxandroiddemo.commons.FirstTimeRunChecker;
+import com.mapbox.mapboxandroiddemo.examples.labs.AmbientNoiseExtrusionHeightActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.AnimatedMarkerActivity;
 import com.mapbox.mapboxandroiddemo.examples.dds.DrawPolygonActivity;
 import com.mapbox.mapboxandroiddemo.examples.basics.MapboxMapOptionActivity;
@@ -1012,11 +1013,19 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     exampleItemModels.add(new ExampleItemModel(
       R.id.nav_lab,
-      R.string.activity_dashed_line_directions_picker_title,
-      R.string.activity_dashed_line_directions_picker_description,
+      R.string.activity_labs_dashed_line_directions_picker_title,
+      R.string.activity_labs_dashed_line_directions_picker_description,
       new Intent(MainActivity.this, DashedLineDirectionsPickerActivity.class),
       null,
-      R.string.activity_dashed_line_directions_picker_url, false, BuildConfig.MIN_SDK_VERSION));
+      R.string.activity_labs_dashed_line_directions_picker_url, false, BuildConfig.MIN_SDK_VERSION));
+
+    exampleItemModels.add(new ExampleItemModel(
+      R.id.nav_lab,
+      R.string.activity_labs_ambient_noise_extrusion_height_title,
+      R.string.activity_labs_ambient_noise_extrusion_height_description,
+      new Intent(MainActivity.this, AmbientNoiseExtrusionHeightActivity.class),
+      null,
+      R.string.activity_labs_ambient_noise_extrusion_height_url, false, BuildConfig.MIN_SDK_VERSION));
 
     exampleItemModels.add(new ExampleItemModel(
       R.id.nav_lab,
