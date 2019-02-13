@@ -333,4 +333,10 @@
 
     <!-- Polygon toggle -->
     <string name="tap_on_neighborhood">Tap on a neighborhood area to toggle its color</string>
+
+    <!-- Finger drag to draw -->
+    <string name="draw_instruction">Draw your finger on the map to draw a line.</string>
+    <string name="toggle_search_data_points_title">Toggle searchable data</string>
+    <string name="search_result_size">%1$d locations in drawn search area</string>
+    <string name="clear_map">Clear map for new draw</string>
 </resources>
