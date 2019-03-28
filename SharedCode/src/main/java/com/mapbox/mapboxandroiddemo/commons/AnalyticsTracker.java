@@ -25,6 +25,7 @@ public class AnalyticsTracker {
   public static final String CLICKED_ON_INFO_DIALOG_START_LEARNING = "Clicked on info dialog start learning button";
   public static final String CLICKED_ON_INFO_DIALOG_NOT_NOW = "Clicked on info dialog not now button";
   public static final String CLICKED_ON_SETTINGS_IN_NAV_DRAWER = "Clicked on settings in nav drawer";
+  public static final String CLICKED_ON_CACHE_UI_IN_SETTINGS_DIALOG = "Clicked on cache UI in the settings dialog";
   public static final String OPTED_IN_TO_ANALYTICS = "Opted in to analytics";
   public static final String OPTED_OUT_OF_ANALYTICS = "Opted out of analytics";
   public static final String SKIPPED_ACCOUNT_CREATION = "Skipped account creation/login";

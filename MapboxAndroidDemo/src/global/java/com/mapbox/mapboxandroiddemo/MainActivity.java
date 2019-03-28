@@ -1,6 +1,7 @@
 package com.mapbox.mapboxandroiddemo;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -11,6 +12,7 @@ import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -22,6 +24,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.afollestad.materialdialogs.DialogAction;
 import com.afollestad.materialdialogs.MaterialDialog;
@@ -137,6 +140,7 @@ import java.util.List;
 
 import timber.log.Timber;
 
+import static com.mapbox.mapboxandroiddemo.commons.AnalyticsTracker.CLICKED_ON_CACHE_UI_IN_SETTINGS_DIALOG;
 import static com.mapbox.mapboxandroiddemo.commons.AnalyticsTracker.CLICKED_ON_INFO_DIALOG_NOT_NOW;
 import static com.mapbox.mapboxandroiddemo.commons.AnalyticsTracker.CLICKED_ON_INFO_DIALOG_START_LEARNING;
 import static com.mapbox.mapboxandroiddemo.commons.AnalyticsTracker.CLICKED_ON_INFO_MENU_ITEM;
@@ -273,7 +277,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     int id = item.getItemId();
 
     if (id == R.id.settings_in_nav_drawer) {
-      buildSettingsDialog();
+//      buildSettingsDialog();
+      buildCacheUiDialog();
     }
 
     if (id == R.id.share_app_in_nav_drawer) {
@@ -394,6 +399,29 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
       analytics.openedAppForFirstTime(getResources().getBoolean(R.bool.isTablet), loggedIn);
     }
     firstTimeRunChecker.updateSharedPrefWithCurrentVersion();
+  }
+
+  private void buildCacheUiDialog() {
+//    analytics.trackEvent(CLICKED_ON_CACHE_UI_IN_SETTINGS_DIALOG, loggedIn);
+    LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+
+    new AlertDialog.Builder(this)
+      .setView(inflater.inflate(R.layout.settings_cache_adjustment, null))
+      .setTitle(R.string.settings_dialog_title)
+      .setPositiveButton(R.string.clear_cache_positive_button, new DialogInterface.OnClickListener() {
+        @Override
+        public void onClick(DialogInterface dialog, int which) {
+          Toast.makeText(MainActivity.this, "Cache cleared", Toast.LENGTH_SHORT).show();
+        }
+      })
+      .setNegativeButton(R.string.clear_cache_negative_button, new DialogInterface.OnClickListener() {
+        @Override
+        public void onClick(DialogInterface dialog, int which) {
+          dialog.dismiss();
+          Toast.makeText(MainActivity.this, "Canceled", Toast.LENGTH_SHORT).show();
+        }
+      })
+      .show();
   }
 
   private void buildSettingsDialog() {

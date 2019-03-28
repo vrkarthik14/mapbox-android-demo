@@ -49,4 +49,9 @@
     <string name="examples_language_kotlin">To Kotlin</string>
     <string name="examples_language_java">To Java</string>
 
+    <!-- Cache settings -->
+    <string name="clear_cache_positive_button">Clear cache</string>
+    <string name="clear_cache_negative_button">Cancel</string>
+    <string name="clear_cache_textview_explanation">Info about cache management API here</string>
+
 </resources>
