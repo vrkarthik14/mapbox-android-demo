@@ -12,7 +12,7 @@ public class MapboxApplication extends Application {
   public void onCreate() {
     super.onCreate();
     setUpPicasso();
-    Mapbox.getInstance(this, getString(R.string.access_token));
+    Mapbox.getInstance(this, getString(R.string.china_access_token));
   }
 
   private void setUpPicasso() {

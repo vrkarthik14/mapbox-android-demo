@@ -389,7 +389,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
       null,
       R.string.activity_china_simple_china_mapview_url, false, BuildConfig.MIN_SDK_VERSION));
 
-    exampleItemModels.add(new ExampleItemModel(
+    /*exampleItemModels.add(new ExampleItemModel(
       R.id.nav_styles,
       R.string.activity_styles_basic_symbol_layer_title,
       R.string.activity_styles_basic_symbol_layer_description,
@@ -710,6 +710,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
       R.string.activity_basic_mapbox_kotlin_description,
       new Intent(MainActivity.this, SimpleMapViewActivityKotlin.class),
       null,
-      R.string.activity_basic_simple_mapview_url, true, BuildConfig.MIN_SDK_VERSION));
+      R.string.activity_basic_simple_mapview_url, true, BuildConfig.MIN_SDK_VERSION));*/
   }
 }
