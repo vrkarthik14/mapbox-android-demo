@@ -333,4 +333,17 @@
 
     <!-- Polygon toggle -->
     <string name="tap_on_neighborhood">Tap on a neighborhood area to toggle its color</string>
+
+    <!-- LocationComponent camera options -->
+    <string name="normal">Normal</string>
+    <string name="compass">Compass</string>
+    <string name="gps">GPS</string>
+    <string name="none">None</string>
+    <string name="tracking">Tracking</string>
+    <string name="tracking_compass">Tracking Compass</string>
+    <string name="tracking_gps">Tracking GPS</string>
+    <string name="tracking_gps_north">Tracking GPS North</string>
+    <string name="clicked_on_location_component">Clicked on LocationComponent</string>
+    <string name="click_on_menu_items">Click on mode and tracking modes to change. There\'s
+    a menu in the upper right hand corner too.</string>
 </resources>
