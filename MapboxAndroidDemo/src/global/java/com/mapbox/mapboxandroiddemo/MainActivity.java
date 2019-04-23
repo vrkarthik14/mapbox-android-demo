@@ -78,6 +78,7 @@ import com.mapbox.mapboxandroiddemo.examples.labs.AnimatedImageGifActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.AnimatedMarkerActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.CalendarIntegrationActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.DashedLineDirectionsPickerActivity;
+import com.mapbox.mapboxandroiddemo.examples.labs.TurfRingActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.IndoorMapActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.InsetMapActivity;
 import com.mapbox.mapboxandroiddemo.examples.labs.LocationPickerActivity;
@@ -933,6 +934,15 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
       new Intent(MainActivity.this, TilequeryActivity.class),
       null,
       R.string.activity_java_services_tilequery_url, false, BuildConfig.MIN_SDK_VERSION));
+
+    exampleItemModels.add(new ExampleItemModel(
+      R.id.nav_java_services,
+      R.string.activity_java_turf_ring_title,
+      R.string.activity_java_turf_ring_description,
+      new Intent(MainActivity.this, TurfRingActivity.class),
+      null,
+      R.string.activity_java_turf_ring_url, false, BuildConfig.MIN_SDK_VERSION
+    ));
 
     exampleItemModels.add(new ExampleItemModel(
       R.id.nav_snapshot_image_generator,
